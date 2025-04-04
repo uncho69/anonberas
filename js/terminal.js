@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     hiddenInput.spellcheck = false;
     document.getElementById('input-line').appendChild(hiddenInput);
     
+    // Verifica se è un dispositivo mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     // Comando di benvenuto e sequenza di inizializzazione
     const welcomeSequence = [
         { text: "Starting anonymous session...", delay: 500 },
@@ -83,70 +86,81 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Abilitare l'input dell'utente dopo la sequenza di benvenuto
         terminalState.inputEnabled = true;
-        document.addEventListener('keydown', handleKeydown);
+        
+        // Configurazione dell'input (desktop e mobile)
+        setupInputHandlers();
         
         // Aggiorna il prompt
         document.querySelector('.prompt').textContent = `root@anonberas:${terminalState.currentDir}# `;
         
-        // Aggiungi tap handler per dispositivi mobili
-        setupMobileSupport();
+        // Su mobile, apri automaticamente la tastiera
+        if (isMobile) {
+            setTimeout(() => {
+                scrollToInput();
+                hiddenInput.focus();
+            }, 500);
+        }
     };
     
-    // Configurazione per dispositivi mobili
-    const setupMobileSupport = () => {
-        // Tap sul terminale per attivare input
-        terminal.addEventListener('click', () => {
-            if (terminalState.inputEnabled) {
-                hiddenInput.focus();
+    // Funzione per scorrere alla fine del terminale (utile su mobile con tastiera aperta)
+    const scrollToInput = () => {
+        setTimeout(() => {
+            terminalContent.scrollTop = terminalContent.scrollHeight;
+            // Aggiungi una piccola animazione per attirare l'attenzione sull'input
+            if (isMobile) {
+                cursor.style.animation = 'none';
+                setTimeout(() => {
+                    cursor.style.animation = 'blink 1s step-end infinite';
+                }, 100);
             }
-        });
-        
-        // Gestisci input da dispositivi mobili
+        }, 300);
+    };
+    
+    // Configura handler di input unificato per evitare duplicazioni
+    const setupInputHandlers = () => {
+        // Utilizza solo l'input nascosto per la digitazione e previeni eventi duplicati
         hiddenInput.addEventListener('input', (e) => {
             if (!terminalState.inputEnabled) return;
+            
+            // Aggiorna solo il contenuto visibile
             commandInput.textContent = e.target.value;
+            scrollToInput();
         });
         
-        // Gestisci invio da dispositivi mobili
+        // Gestisci invio con l'input nascosto
         hiddenInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 if (terminalState.inputEnabled) {
-                    executeCommand(commandInput.textContent);
+                    const command = hiddenInput.value;
+                    executeCommand(command);
                     commandInput.textContent = '';
                     hiddenInput.value = '';
                 }
             }
         });
-    };
-
-    // Gestisci i tasti premuti
-    const handleKeydown = (e) => {
-        if (!terminalState.inputEnabled) return;
         
-        // Ignora alcuni tasti di controllo
-        if (e.ctrlKey || e.altKey || e.metaKey) return;
-        
-        if (e.key === 'Enter') {
-            // Esegui il comando quando si preme Enter
-            executeCommand(commandInput.textContent);
-            commandInput.textContent = '';
-            hiddenInput.value = '';
-        } else if (e.key === 'Backspace') {
-            // Gestisci il tasto backspace
-            if (commandInput.textContent.length > 0) {
-                commandInput.textContent = commandInput.textContent.slice(0, -1);
-                hiddenInput.value = commandInput.textContent;
+        // Tap sul terminale per attivare input
+        terminal.addEventListener('click', () => {
+            if (terminalState.inputEnabled) {
+                hiddenInput.focus();
+                scrollToInput();
             }
-            // Non prevenire il default qui per permettere il funzionamento su mobile
-        } else if (e.key.length === 1) {
-            // Aggiungi il carattere digitato
-            commandInput.textContent += e.key;
-            hiddenInput.value = commandInput.textContent;
-        }
+        });
         
-        // Auto-scroll alla fine del terminale
-        terminalContent.scrollTop = terminalContent.scrollHeight;
+        // Stili speciali per mobile
+        if (isMobile) {
+            terminal.classList.add('mobile-terminal');
+            document.body.classList.add('mobile-device');
+            
+            // Gestisci focus/blur dell'input nascosto
+            hiddenInput.addEventListener('focus', () => {
+                // Quando l'input ottiene il focus, scorri in basso dopo un po'
+                setTimeout(() => {
+                    scrollToInput();
+                }, 300);
+            });
+        }
     };
 
     // Esegui il comando inserito
@@ -187,8 +201,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Aggiorna il prompt dopo ogni comando
         document.querySelector('.prompt').textContent = `root@anonberas:${terminalState.currentDir}# `;
         
-        // Rimetti il focus sull'input nascosto per dispositivi mobili
-        hiddenInput.focus();
+        // Rimetti il focus sull'input nascosto
+        setTimeout(() => {
+            hiddenInput.focus();
+            scrollToInput();
+        }, 100);
     };
     
     // Gestisce il comando ls
@@ -239,7 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Termina il terminale e mostra il contenuto principale
             terminalState.inputEnabled = false;
-            document.removeEventListener('keydown', handleKeydown);
             
             // Transizione al contenuto principale
             setTimeout(() => {
@@ -275,6 +291,20 @@ document.addEventListener('DOMContentLoaded', () => {
             left: -9999px;
             opacity: 0;
             height: 0;
+        }
+        
+        /* Stili per il supporto mobile */
+        .mobile-device #terminal-content {
+            padding-bottom: 60px; /* Spazio extra per la tastiera */
+        }
+        
+        .mobile-terminal #input-line {
+            position: sticky;
+            bottom: 0;
+            background-color: #0d0d0d;
+            padding: 10px 0;
+            border-top: 1px solid #222;
+            z-index: 10;
         }
     `;
     document.head.appendChild(style);
