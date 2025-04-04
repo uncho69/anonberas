@@ -6,6 +6,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContent = document.getElementById('main-content');
     const terminalContent = document.getElementById('terminal-content');
     
+    // Aggiungi input nascosto per dispositivi mobili
+    const hiddenInput = document.createElement('input');
+    hiddenInput.type = 'text';
+    hiddenInput.className = 'hidden-input';
+    hiddenInput.autocapitalize = 'none';
+    hiddenInput.autocomplete = 'off';
+    hiddenInput.spellcheck = false;
+    document.getElementById('input-line').appendChild(hiddenInput);
+    
     // Comando di benvenuto e sequenza di inizializzazione
     const welcomeSequence = [
         { text: "Starting anonymous session...", delay: 500 },
@@ -78,6 +87,37 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Aggiorna il prompt
         document.querySelector('.prompt').textContent = `root@anonberas:${terminalState.currentDir}# `;
+        
+        // Aggiungi tap handler per dispositivi mobili
+        setupMobileSupport();
+    };
+    
+    // Configurazione per dispositivi mobili
+    const setupMobileSupport = () => {
+        // Tap sul terminale per attivare input
+        terminal.addEventListener('click', () => {
+            if (terminalState.inputEnabled) {
+                hiddenInput.focus();
+            }
+        });
+        
+        // Gestisci input da dispositivi mobili
+        hiddenInput.addEventListener('input', (e) => {
+            if (!terminalState.inputEnabled) return;
+            commandInput.textContent = e.target.value;
+        });
+        
+        // Gestisci invio da dispositivi mobili
+        hiddenInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (terminalState.inputEnabled) {
+                    executeCommand(commandInput.textContent);
+                    commandInput.textContent = '';
+                    hiddenInput.value = '';
+                }
+            }
+        });
     };
 
     // Gestisci i tasti premuti
@@ -91,15 +131,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Esegui il comando quando si preme Enter
             executeCommand(commandInput.textContent);
             commandInput.textContent = '';
+            hiddenInput.value = '';
         } else if (e.key === 'Backspace') {
             // Gestisci il tasto backspace
             if (commandInput.textContent.length > 0) {
                 commandInput.textContent = commandInput.textContent.slice(0, -1);
+                hiddenInput.value = commandInput.textContent;
             }
-            e.preventDefault();
+            // Non prevenire il default qui per permettere il funzionamento su mobile
         } else if (e.key.length === 1) {
             // Aggiungi il carattere digitato
             commandInput.textContent += e.key;
+            hiddenInput.value = commandInput.textContent;
         }
         
         // Auto-scroll alla fine del terminale
@@ -143,6 +186,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Aggiorna il prompt dopo ogni comando
         document.querySelector('.prompt').textContent = `root@anonberas:${terminalState.currentDir}# `;
+        
+        // Rimetti il focus sull'input nascosto per dispositivi mobili
+        hiddenInput.focus();
     };
     
     // Gestisce il comando ls
@@ -221,6 +267,14 @@ document.addEventListener('DOMContentLoaded', () => {
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .hidden-input {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            opacity: 0;
+            height: 0;
         }
     `;
     document.head.appendChild(style);
